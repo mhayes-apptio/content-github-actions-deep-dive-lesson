@@ -90,7 +90,24 @@ jobs:
           aws-region: us-west-2
       - name: Upload to S3
         run: aws s3 cp ${{ github.sha }}.zip s3://mhayes-acg-docker-deep-dive-lab1/${{ github.sha }}.zip
-      
+  deploy:
+    runs-on: ubuntu-latest
+    needs: upload
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Update function code
+        run: |
+          aws lambda update-function-code \
+            --function-name acg-github-actions-deep-dive-lambda-1 \
+            --s3-bucket mhayes-acg-docker-deep-dive-lab1 \
+            --s3-key ${{ github.sha}}.zip \
+            --publish
+
       
         
           
