@@ -80,7 +80,7 @@ jobs:
       - name: Create test function
         run: |
             aws lambda create-function --function-name test-function \
-            --code S3Bucket=mhayes-acg-docker-deep-dive-lab1, S3Key=${{ github.sha }}.zip \
+            --code S3Bucket=mhayes-acg-docker-deep-dive-lab1,S3Key=${{ github.sha }}.zip \
             --handler lambda_function.lambda_handler --runtime python3.8 \
             --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID}}:role/acg-github-actions-deep-dive-lambda-1-role-n964v5b2
       - name: Wait 30 sec
