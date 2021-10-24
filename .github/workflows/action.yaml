@@ -49,4 +49,60 @@ jobs:
         with:
           name: zipped-bundle
           path: ${{ github.sha}}.zip
-     
+    
+  upload:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: zipped-bundle
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Upload to S3
+        run: aws s3 cp ${{ github.sha }}.zip s3://mhayes-acg-docker-deep-dive-lab1/${{ github.sha }}.zip
+  
+  test:
+    runs-on: ubuntu-latest
+    needs: upload
+      steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Create test function
+        run: |
+            aws lambda create-function --function-name test-function \
+            --code S3Bucket=mhayes-acg-docker-deep-dive-lab1, S3Key=${{ github.sha}}.zip \
+            --handler lambda_function.lambda_handler --runtime python3.8 \
+            --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID}}:role/acg-github-actions-deep-dive-lambda-1-role-n964v5b2
+      - name: Wait 30 sec
+        run: sleep 30
+      - name: Destroy test function
+        if: ${{ always() }} 
+        run: aws lambda delete-function --function-name test-function
+        
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Update function code
+        run: |
+          aws lambda update-function-code \
+            --function-name acg-github-actions-deep-dive-lambda-1 \
+            --s3-bucket mhayes-acg-docker-deep-dive-lab1 \
+            --s3-key ${{ github.sha}}.zip \
+            --publish
